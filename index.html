@@ -23,7 +23,7 @@
   --shadow:0 2px 10px rgba(15,42,74,.08);
 }
 *{box-sizing:border-box;}
-html,body{margin:0;padding:0;}
+html,body{margin:0;padding:0;height:auto;min-height:100%;}
 html{overflow-x:hidden;}
 body{
   font-family:"Malgun Gothic","Apple SD Gothic Neo",-apple-system,BlinkMacSystemFont,sans-serif;
@@ -32,6 +32,7 @@ body{
   line-height:1.5;
   padding-bottom:60px;
   overflow-x:hidden;
+  overscroll-behavior-y:contain;
   -webkit-overflow-scrolling:touch;
 }
 header.topbar{
@@ -96,7 +97,7 @@ header.topbar p{
 }
 @media(max-width:980px){
   .layout{grid-template-columns:1fr;}
-  aside.summary{position:relative;top:0;max-height:none;}
+  aside.summary{position:relative!important;top:0!important;max-height:none!important;overflow-y:visible!important;}
 }
 .mobile-bar{display:none;}
 @media(max-width:980px){
@@ -285,6 +286,25 @@ button.act:active{transform:scale(.97);}
 }
 
 #printArea{display:none;}
+/* ---- 화면 인쇄 미리보기 (모바일 등 window.print()가 동작하지 않는 환경 대응) ---- */
+#printArea.preview{
+  display:block!important;
+  position:fixed;inset:0;z-index:9998;
+  background:#fff;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:64px 16px 30px;
+}
+#printPreviewBar{
+  display:none;position:fixed;top:0;left:0;right:0;z-index:9999;
+  background:var(--navy);padding:10px 14px;gap:10px;
+  box-shadow:0 2px 10px rgba(0,0,0,.2);
+}
+#printPreviewBar.show{display:flex;}
+#printPreviewBar button{
+  flex:1;border:none;border-radius:8px;padding:11px 10px;
+  font-size:13.5px;font-weight:700;cursor:pointer;
+}
+#printPreviewBar .btn-close{background:#fff;color:var(--navy);}
+#printPreviewBar .btn-doprint{background:var(--blue);color:#fff;}
 /* ---- 인쇄용 스타일: 원본 '계약신청서' 옵션표 양식을 재현 ---- */
 #printArea, #printArea *{
   -webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;
@@ -360,7 +380,7 @@ button.act:active{transform:scale(.97);}
 #printArea .sign div{border-bottom:1px solid #333;padding-bottom:22px;min-width:220px;}
 #printArea .foot-note{font-size:9px;color:#888;margin-top:16px;border-top:1px dashed #ccc;padding-top:6px;}
 @media print{
-  header.topbar,aside.summary,.quicknav,#errorBanner,.btn-row,.customer-bar,.type-tabs,footer.note,.mobile-bar,.floorplan-card{display:none!important;}
+  header.topbar,aside.summary,.quicknav,#errorBanner,.btn-row,.customer-bar,.type-tabs,footer.note,.mobile-bar,.floorplan-card,#printPreviewBar{display:none!important;}
   body{padding:0;background:#fff;}
   .layout{display:block;padding:0;margin:0;max-width:100%;}
   .category{display:none!important;}
@@ -508,6 +528,10 @@ footer.note{
   <button id="mbScroll" type="button">요약·인쇄 보기 ▾</button>
 </div>
 
+<div id="printPreviewBar">
+  <button type="button" class="btn-close" id="btnClosePreview">✕ 닫기</button>
+  <button type="button" class="btn-doprint" id="btnDoPrint">🖨 인쇄 / 공유</button>
+</div>
 <div id="printArea"></div>
 <div class="toast" id="toast"></div>
 
@@ -1397,14 +1421,30 @@ document.getElementById('btnReset').addEventListener('click', function(){
 /* =========================================================
    인쇄
 ========================================================= */
+function showPrintPreview(){
+  document.getElementById('printArea').classList.add('preview');
+  document.getElementById('printPreviewBar').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('printArea').scrollTop = 0;
+}
+function closePrintPreview(){
+  document.getElementById('printArea').classList.remove('preview');
+  document.getElementById('printPreviewBar').classList.remove('show');
+  document.body.style.overflow = '';
+}
+document.getElementById('btnClosePreview').addEventListener('click', closePrintPreview);
+document.getElementById('btnDoPrint').addEventListener('click', function(){
+  window.print();
+});
+
 document.getElementById('btnPrint').addEventListener('click', function(){
   buildPrintArea();
-  window.print();
+  showPrintPreview();
 });
 
 document.getElementById('btnInspectPrint').addEventListener('click', function(){
   buildInspectionPrintArea();
-  window.print();
+  showPrintPreview();
 });
 
 function escapeHtml(s){
@@ -1482,7 +1522,7 @@ function buildPrintArea(){
 
   let html = '';
   html += '<div class="doc-head">';
-  html += '<div class="tableno"><div>테이블 번호</div><div>'+escapeHtml(custInfo.table||'&nbsp;')+'</div></div>';
+  html += '<div class="tableno"><div>테이블 번호</div><div>'+escapeHtml(custInfo.table||' ')+'</div></div>';
   html += '<h1>시흥거모지구 대방 엘리움 더 루체Ⅰ(S-2BL) 옵션 선택 확인서</h1>';
   html += '<table class="infogrid">';
   html += '<tr><td class="k">목적물</td><td class="v" colspan="3">경기도 시흥시 거모동 공공주택지구 S-2BL 시흥거모지구 대방 엘리움 더 루체Ⅰ 아파트</td></tr>';
@@ -1580,7 +1620,7 @@ function buildInspectionPrintArea(){
 
   let html = '';
   html += '<div class="doc-head">';
-  html += '<div class="tableno"><div>테이블 번호</div><div>'+escapeHtml(custInfo.table||'&nbsp;')+'</div></div>';
+  html += '<div class="tableno"><div>테이블 번호</div><div>'+escapeHtml(custInfo.table||' ')+'</div></div>';
   html += '<h1>시흥거모지구 대방 엘리움 더 루체Ⅰ(S-2BL) 선택 옵션 검수표</h1>';
   html += '<table class="infogrid">';
   html += '<tr><td class="k">목적물</td><td class="v" colspan="3">경기도 시흥시 거모동 공공주택지구 S-2BL 시흥거모지구 대방 엘리움 더 루체Ⅰ 아파트</td></tr>';
@@ -1642,6 +1682,18 @@ if(mbScrollBtn){
     document.querySelector('aside.summary').scrollIntoView({behavior:'smooth',block:'start'});
   });
 }
+
+/* 일부 모바일 브라우저(특히 iOS)에서 텍스트 입력창 포커스가 풀린 직후
+   스크롤이 멈춘 것처럼 보이는 문제가 있어, 포커스 해제 시 스크롤 위치를
+   미세하게 흔들어 다시 정상 동작하도록 보정한다. */
+document.addEventListener('focusout', function(e){
+  if(!e.target || (e.target.tagName!=='INPUT' && e.target.tagName!=='TEXTAREA')) return;
+  setTimeout(function(){
+    const y = window.scrollY || window.pageYOffset || 0;
+    window.scrollTo(0, y+1);
+    window.scrollTo(0, y);
+  }, 50);
+});
 
 renderTabs();
 renderFloorplan();
