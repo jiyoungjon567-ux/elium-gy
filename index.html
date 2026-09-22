@@ -431,6 +431,23 @@ footer.note{
   padding:1px 6px;border-radius:999px;white-space:nowrap;
 }
 .fp-marker.done .fp-marker-label{background:rgba(26,138,83,.85);}
+.fp-corner{
+  position:absolute;top:8px;right:8px;z-index:6;
+  display:flex;flex-direction:column;align-items:flex-end;gap:6px;
+}
+.fp-corner-badge{
+  display:flex;align-items:center;gap:6px;
+  border:none;cursor:pointer;padding:5px 10px 5px 6px;border-radius:999px;
+  background:rgba(15,42,74,.9);box-shadow:0 2px 8px rgba(0,0,0,.25);
+}
+.fp-corner-icon{
+  width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;line-height:1;flex:none;
+  animation:fpPulse 1.8s infinite;
+}
+.fp-corner-badge.done .fp-corner-icon{background:var(--green);animation:none;}
+.fp-corner-text{font-size:11px;font-weight:700;color:#fff;white-space:nowrap;}
 @keyframes fpPulse{
   0%{box-shadow:0 0 0 3px rgba(255,255,255,.55),0 0 0 0 rgba(214,69,69,.55);}
   70%{box-shadow:0 0 0 3px rgba(255,255,255,.55),0 0 0 9px rgba(214,69,69,0);}
@@ -463,6 +480,9 @@ footer.note{
   .floorplan-card .fp-img{max-height:70vh;}
   .fp-marker-icon{width:19px;height:19px;font-size:11px;}
   .fp-marker-label{font-size:9px;padding:1px 5px;}
+  .fp-corner-icon{width:16px;height:16px;font-size:10px;}
+  .fp-corner-text{font-size:10px;}
+  .fp-corner-badge{padding:4px 8px 4px 5px;}
 }
 
 </style>
@@ -1014,6 +1034,7 @@ function renderFloorplan(){
     '<div class="fp-body"><div class="fp-imgwrap">'+
       '<img class="fp-img" src="'+src+'" alt="'+escapeHtml(meta.title||'평면도')+'">'+
       '<div class="fp-markers" id="fpMarkers"></div>'+
+      '<div class="fp-corner" id="fpCorner"></div>'+
     '</div></div>'+
     '<div class="fp-note">※ 발코니 확장 및 주요 유상옵션 적용 시 예상 평면이며, 실제 시공 치수·구조와 차이가 있을 수 있습니다. 정확한 도면은 원본 계약서 도면을 기준으로 확인하시기 바랍니다. 원 안의 숫자/체크는 해당 구역 옵션의 선택 완료 여부를 나타냅니다.</div>';
   renderFloorplanMarkers();
@@ -1024,8 +1045,8 @@ function renderFloorplan(){
 ========================================================= */
 const FLOORPLAN_MARKERS = {
   '84': [
-    {label:'발코니',   top:33.0, left:70.0, cats:['발코니']},
-    {label:'에어컨',   top:42.0, left:79.0, cats:['시스템에어컨']},
+    {label:'발코니',   corner:true, cats:['발코니']},
+    {label:'에어컨',   corner:true, cats:['시스템에어컨']},
     {label:'현관',     top:56.2, left:85.5, cats:['현관']},
     {label:'조명',     top:53.0, left:54.6, cats:['조명']},
     {label:'거실',     top:78.7, left:53.3, cats:['거실']},
@@ -1035,9 +1056,9 @@ const FLOORPLAN_MARKERS = {
     {label:'욕실',     top:58.0, left:71.0, cats:['욕실']}
   ],
   '122': [
-    {label:'발코니',   top:28.0, left:61.0, cats:['발코니']},
-    {label:'발코니1',  top:89.0, left:22.0, cats:['발코니1']},
-    {label:'에어컨',   top:45.0, left:72.0, cats:['시스템에어컨']},
+    {label:'발코니',   corner:true, cats:['발코니']},
+    {label:'발코니1',  corner:true, cats:['발코니1']},
+    {label:'에어컨',   corner:true, cats:['시스템에어컨']},
     {label:'현관',     top:58.6, left:89.5, cats:['현관/복도']},
     {label:'조명',     top:53.0, left:40.5, cats:['조명']},
     {label:'거실',     top:76.4, left:40.5, cats:['거실']},
@@ -1073,14 +1094,40 @@ function markerScrollCat(type, sel, cats){
 
 function renderFloorplanMarkers(){
   const wrap = document.getElementById('fpMarkers');
+  const corner = document.getElementById('fpCorner');
   if(!wrap) return;
   wrap.innerHTML='';
+  if(corner) corner.innerHTML='';
   const type = getType(currentTypeKey);
   const sel = state[currentTypeKey];
   const markers = FLOORPLAN_MARKERS[currentTypeKey] || [];
   markers.forEach(function(m){
     const status = markerStatus(type, sel, m.cats);
     if(status==='none') return;
+
+    if(m.corner){
+      if(!corner) return;
+      const cbtn = document.createElement('button');
+      cbtn.type='button';
+      cbtn.className = 'fp-corner-badge'+(status==='done'?' done':'');
+      cbtn.setAttribute('aria-label', m.label+(status==='done'?' 선택 완료':' 선택하러 가기'));
+      cbtn.innerHTML =
+        '<span class="fp-corner-icon">'+(status==='done'?'✓':'')+'</span>'+
+        '<span class="fp-corner-text">'+escapeHtml(m.label)+'</span>';
+      cbtn.addEventListener('click', function(){
+        const catName = markerScrollCat(type, sel, m.cats);
+        const catId = 'cat_'+catName.replace(/[^a-zA-Z0-9가-힣]/g,'_');
+        const target = document.getElementById(catId);
+        if(target){
+          target.scrollIntoView({behavior:'smooth',block:'start'});
+          target.classList.add('flash');
+          setTimeout(function(){ target.classList.remove('flash'); }, 1100);
+        }
+      });
+      corner.appendChild(cbtn);
+      return;
+    }
+
     const btn = document.createElement('button');
     btn.type='button';
     btn.className = 'fp-marker'+(status==='done'?' done':'');
