@@ -382,9 +382,43 @@ footer.note{
   display:flex;align-items:center;gap:6px;
 }
 .floorplan-card .fp-body{background:#0b1020;padding:10px;text-align:center;}
-.floorplan-card .fp-img{display:inline-block;max-width:100%;height:auto;border-radius:6px;}
+.floorplan-card .fp-imgwrap{position:relative;display:inline-block;max-width:100%;line-height:0;}
+.floorplan-card .fp-img{display:block;max-width:100%;height:auto;border-radius:6px;}
 .floorplan-card .fp-note{
   padding:8px 16px 12px;font-size:11.5px;color:var(--gray-600);background:#fff;
+}
+.fp-markers{position:absolute;inset:0;pointer-events:none;}
+.fp-marker{
+  position:absolute;transform:translate(-50%,-50%);
+  pointer-events:auto;border:none;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:none;padding:0;
+}
+.fp-marker-icon{
+  width:22px;height:22px;border-radius:50%;
+  background:var(--accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:800;line-height:1;
+  box-shadow:0 0 0 3px rgba(255,255,255,.55),0 2px 6px rgba(0,0,0,.35);
+  animation:fpPulse 1.8s infinite;
+}
+.fp-marker.done .fp-marker-icon{
+  background:var(--green);animation:none;box-shadow:0 0 0 3px rgba(255,255,255,.7),0 2px 6px rgba(0,0,0,.3);
+}
+.fp-marker-label{
+  font-size:10px;font-weight:700;color:#fff;background:rgba(15,42,74,.82);
+  padding:1px 6px;border-radius:999px;white-space:nowrap;
+}
+.fp-marker.done .fp-marker-label{background:rgba(26,138,83,.85);}
+@keyframes fpPulse{
+  0%{box-shadow:0 0 0 3px rgba(255,255,255,.55),0 0 0 0 rgba(214,69,69,.55);}
+  70%{box-shadow:0 0 0 3px rgba(255,255,255,.55),0 0 0 9px rgba(214,69,69,0);}
+  100%{box-shadow:0 0 0 3px rgba(255,255,255,.55),0 0 0 0 rgba(214,69,69,0);}
+}
+.category.flash{animation:catFlash 1.1s ease;}
+@keyframes catFlash{
+  0%{box-shadow:0 0 0 4px rgba(26,86,168,.55);}
+  100%{box-shadow:var(--shadow);}
 }
 
 @media(max-width:600px){
@@ -406,6 +440,8 @@ footer.note{
   .selected-list{overflow-y:visible;max-height:none;}
   aside.summary{overflow-y:visible;}
   .floorplan-card .fp-img{max-height:70vh;}
+  .fp-marker-icon{width:19px;height:19px;font-size:11px;}
+  .fp-marker-label{font-size:9px;padding:1px 5px;}
 }
 
 </style>
@@ -949,8 +985,97 @@ function renderFloorplan(){
   if(!src){ container.innerHTML=''; return; }
   container.innerHTML =
     '<div class="fp-head">\ud83c\udfe0 '+escapeHtml(meta.title||'평면도')+'</div>'+
-    '<div class="fp-body"><img class="fp-img" src="'+src+'" alt="'+escapeHtml(meta.title||'평면도')+'"></div>'+
-    '<div class="fp-note">※ 발코니 확장 및 주요 유상옵션 적용 시 예상 평면이며, 실제 시공 치수·구조와 차이가 있을 수 있습니다. 정확한 도면은 원본 계약서 도면을 기준으로 확인하시기 바랍니다.</div>';
+    '<div class="fp-body"><div class="fp-imgwrap">'+
+      '<img class="fp-img" src="'+src+'" alt="'+escapeHtml(meta.title||'평면도')+'">'+
+      '<div class="fp-markers" id="fpMarkers"></div>'+
+    '</div></div>'+
+    '<div class="fp-note">※ 발코니 확장 및 주요 유상옵션 적용 시 예상 평면이며, 실제 시공 치수·구조와 차이가 있을 수 있습니다. 정확한 도면은 원본 계약서 도면을 기준으로 확인하시기 바랍니다. 원 안의 숫자/체크는 해당 구역 옵션의 선택 완료 여부를 나타냅니다.</div>';
+  renderFloorplanMarkers();
+}
+
+/* =========================================================
+   평면도 클릭형 마커 (구역별 옵션 선택 상태 표시)
+========================================================= */
+const FLOORPLAN_MARKERS = {
+  '84': [
+    {label:'발코니',   top:33.0, left:70.0, cats:['발코니']},
+    {label:'에어컨',   top:42.0, left:79.0, cats:['시스템에어컨']},
+    {label:'현관',     top:56.2, left:85.5, cats:['현관']},
+    {label:'조명',     top:53.0, left:54.6, cats:['조명']},
+    {label:'거실',     top:78.7, left:53.3, cats:['거실']},
+    {label:'침실',     top:68.0, left:77.5, cats:['침실']},
+    {label:'드레스룸', top:44.0, left:20.0, cats:['드레스룸']},
+    {label:'주방',     top:43.0, left:55.0, cats:['주방']},
+    {label:'욕실',     top:58.0, left:71.0, cats:['욕실']}
+  ],
+  '122': [
+    {label:'발코니',   top:28.0, left:61.0, cats:['발코니']},
+    {label:'발코니1',  top:89.0, left:22.0, cats:['발코니1']},
+    {label:'에어컨',   top:45.0, left:72.0, cats:['시스템에어컨']},
+    {label:'현관',     top:58.6, left:89.5, cats:['현관/복도']},
+    {label:'조명',     top:53.0, left:40.5, cats:['조명']},
+    {label:'거실',     top:76.4, left:40.5, cats:['거실']},
+    {label:'침실',     top:65.0, left:64.0, cats:['침실']},
+    {label:'드레스룸', top:29.0, left:13.0, cats:['드레스룸']},
+    {label:'주방',     top:42.0, left:43.2, cats:['주방','주방 (ㄷ자형)','주방 (확장형)']},
+    {label:'욕실',     top:54.2, left:65.5, cats:['욕실']}
+  ]
+};
+
+// 특정 카테고리(section)에 속하고, 현재 조건상 화면에 노출되는 그룹만 반환
+function catGroupsVisible(type, sel, catName){
+  return type.groups.filter(function(g){ return g.section===catName; })
+    .filter(function(g){ return !g.visibleIf || g.visibleIf(sel); });
+}
+
+// 마커 하나가 커버하는 카테고리(들)의 완료 상태: 'none'(해당사항 없음)/'pending'/'done'
+function markerStatus(type, sel, cats){
+  let groups=[];
+  cats.forEach(function(c){ groups = groups.concat(catGroupsVisible(type, sel, c)); });
+  if(groups.length===0) return 'none';
+  const done = groups.every(function(g){ return !!sel[g.id]; });
+  return done ? 'done' : 'pending';
+}
+
+// 마커 클릭 시 스크롤할 카테고리(현재 노출된 것 우선)
+function markerScrollCat(type, sel, cats){
+  for(let i=0;i<cats.length;i++){
+    if(catGroupsVisible(type, sel, cats[i]).length>0) return cats[i];
+  }
+  return cats[0];
+}
+
+function renderFloorplanMarkers(){
+  const wrap = document.getElementById('fpMarkers');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  const type = getType(currentTypeKey);
+  const sel = state[currentTypeKey];
+  const markers = FLOORPLAN_MARKERS[currentTypeKey] || [];
+  markers.forEach(function(m){
+    const status = markerStatus(type, sel, m.cats);
+    if(status==='none') return;
+    const btn = document.createElement('button');
+    btn.type='button';
+    btn.className = 'fp-marker'+(status==='done'?' done':'');
+    btn.style.top = m.top+'%';
+    btn.style.left = m.left+'%';
+    btn.setAttribute('aria-label', m.label+(status==='done'?' 선택 완료':' 선택하러 가기'));
+    btn.innerHTML =
+      '<span class="fp-marker-icon">'+(status==='done'?'✓':'')+'</span>'+
+      '<span class="fp-marker-label">'+escapeHtml(m.label)+'</span>';
+    btn.addEventListener('click', function(){
+      const catName = markerScrollCat(type, sel, m.cats);
+      const catId = 'cat_'+catName.replace(/[^a-zA-Z0-9가-힣]/g,'_');
+      const target = document.getElementById(catId);
+      if(target){
+        target.scrollIntoView({behavior:'smooth',block:'start'});
+        target.classList.add('flash');
+        setTimeout(function(){ target.classList.remove('flash'); }, 1100);
+      }
+    });
+    wrap.appendChild(btn);
+  });
 }
 
 
