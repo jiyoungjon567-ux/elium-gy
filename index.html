@@ -289,7 +289,7 @@ button.act:active{transform:scale(.97);}
 /* ---- 화면 인쇄 미리보기 (모바일 등 window.print()가 동작하지 않는 환경 대응) ---- */
 #printArea.preview{
   display:block!important;
-  position:fixed;inset:0;z-index:9998;
+  position:fixed;top:0;left:0;right:0;bottom:0;z-index:9998;
   background:#fff;overflow-y:auto;-webkit-overflow-scrolling:touch;
   padding:64px 16px 30px;
 }
@@ -408,7 +408,7 @@ footer.note{
 .floorplan-card .fp-note{
   padding:8px 16px 12px;font-size:11.5px;color:var(--gray-600);background:#fff;
 }
-.fp-markers{position:absolute;inset:0;pointer-events:none;}
+.fp-markers{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;}
 .fp-marker{
   position:absolute;transform:translate(-50%,-50%);
   pointer-events:auto;border:none;cursor:pointer;
@@ -1469,13 +1469,19 @@ document.getElementById('btnReset').addEventListener('click', function(){
    인쇄
 ========================================================= */
 function showPrintPreview(){
-  document.getElementById('printArea').classList.add('preview');
+  const pa = document.getElementById('printArea');
+  pa.classList.add('preview');
+  // 구형 모바일 브라우저의 CSS 미지원 등에 대비한 이중 안전장치
+  pa.style.cssText += ';display:block!important;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9998;background:#fff;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:64px 16px 30px;';
   document.getElementById('printPreviewBar').classList.add('show');
   document.body.style.overflow = 'hidden';
-  document.getElementById('printArea').scrollTop = 0;
+  pa.scrollTop = 0;
+  window.scrollTo(0,0);
 }
 function closePrintPreview(){
-  document.getElementById('printArea').classList.remove('preview');
+  const pa = document.getElementById('printArea');
+  pa.classList.remove('preview');
+  pa.removeAttribute('style');
   document.getElementById('printPreviewBar').classList.remove('show');
   document.body.style.overflow = '';
 }
